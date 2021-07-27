@@ -1,0 +1,575 @@
+---
+title: "ADS503 Final Project"
+output:
+  word_document: default
+  pdf_document: default
+---
+
+
+
+  Attribute Information:     
+     Attribute:                Attribute Range:
+     ------------------        -----------------------------------------------
+  1. symboling(risk-Rating):              -3, -2, -1, 0, 1, 2, 3.
+  2. normalized-losses:        continuous from 65 to 256.
+  3. make:                     alfa-romero, audi, bmw, chevrolet, dodge, honda,
+                               isuzu, jaguar, mazda, mercedes-benz, mercury,
+                               mitsubishi, nissan, peugot, plymouth, porsche,
+                               renault, saab, subaru, toyota, volkswagen, volvo
+  4. fuel-type:                diesel, gas.
+  5. aspiration:               std, turbo.
+  6. num-of-doors:             four, two.
+  7. body-style:               hardtop, wagon, sedan, hatchback, convertible.
+  8. drive-wheels:             4wd, fwd, rwd.
+  9. engine-location:          front, rear.
+ 10. wheel-base:               continuous from 86.6 120.9.
+ 11. length:                   continuous from 141.1 to 208.1.
+ 12. width:                    continuous from 60.3 to 72.3.
+ 13. height:                   continuous from 47.8 to 59.8.
+ 14. curb-weight:              continuous from 1488 to 4066.
+ 15. engine-type:              dohc, dohcv, l, ohc, ohcf, ohcv, rotor.
+ 16. num-of-cylinders:         eight, five, four, six, three, twelve, two.
+ 17. engine-size:              continuous from 61 to 326.
+ 18. fuel-system:              1bbl, 2bbl, 4bbl, idi, mfi, mpfi, spdi, spfi.
+ 19. bore(diameter of each cylinder):   continuous from 2.54 to 3.94.
+ 20. stroke:                   continuous from 2.07 to 4.17.
+ 21. compression-ratio:        continuous from 7 to 23.
+ 22. horsepower:               continuous from 48 to 288.
+ 23. peak-rpm:                 continuous from 4150 to 6600.
+ 24. city-mpg (gal):           continuous from 13 to 49.
+ 25. highway-mpg (gal):        continuous from 16 to 54.
+ 26. price:                    continuous from 5118 to 45400.
+
+
+# 1 Data Restructuring
+
+# A. What is proportion and pattern of missing values ?
+# B. is missigness mechanism of Data is MCAR ?
+
+```{r warning=FALSE, paged.print=FALSE}
+# Required Libraries for project
+library("mice")
+library("VIM")
+library("tidyverse")
+library(visdat)
+library(lattice)
+library(ggpubr)
+library("caret")
+library(randomForest)
+library("plyr")
+
+df <- read.csv("C:/Users/emrek/Desktop/Ads 503/Data_Car.csv")
+
+head(df)
+str(df)
+
+vis_miss(df) # shows missign values proportion both total and each column
+
+summary(df)
+
+colSums(is.na(df))
+
+miss_plot <-aggr(df, col=mdc(1:2), numbers=TRUE, sortVars=TRUE, labels=names(df), cex.axis=.7, gap=3, xlab=c("columns"),ylab=c("Proportion of missingness","Missingness Pattern"))
+
+
+# Multiple imputation
+df_mice_imputes = mice(df, m=5, maxit = 40)
+
+# Goodness of fit
+densityplot(df_mice_imputes)
+# Imputation
+Imputed_data <- complete(df_mice_imputes,1)
+
+
+#  Volume of cars 
+
+Imputed_data$volume <- Imputed_data$X11 *Imputed_data$X12 * Imputed_data$X13
+# get rid of with,length and height
+
+#
+Imputed_data <- select(Imputed_data,-X11,-X12,-X13)
+
+Imputed_data$X1 = as.factor(Imputed_data$X1) # X1 symbol rating is discrete
+
+# write to csv to reuse 
+write.csv(Imputed_data,"C:/Users/emrek/Desktop/Ads 503/Imputed.csv",row.names = FALSE)
+
+
+
+```
+
+
+
+
+```{r}
+
+# 2) Exploratory Analysis
+# Descriptive Analyisis 
+
+options(scipen = 999)
+data <- read.csv("C:/Users/emrek/Desktop/Ads 503/Imputed.csv")
+
+
+numeric_columns <- dplyr::select_if(data, is.numeric)
+
+list_names = names(numeric_columns) # list of column names
+
+# X2
+boxplot(data$X2,xlab = "normalized-losses(X2)") # No outliers
+
+print(paste("Median of normalized-losses:", round(median(data$X2),3),"IQR:",round(IQR(data$X2),3)))
+
+# X10
+boxplot(data$X10,xlab = "Wheel-base(X10)")
+print(paste("Median of  wheel-base:", median(data$X10) ,"Measure of Variance:",round(IQR(data$X10),1)))
+
+# X14
+boxplot(data$X14,xlab = "curb-weight(X14)")
+print(paste("Median of  curb-weight:", round(median(data$X14),2) ,"IQR:",round(IQR(data$X14),2)))
+
+#x17
+boxplot(data$X17,xlab = "engine-size(X17)")
+print(paste("Median of  engine-size:", median(data$X17) ,"Measure of Variance:",round(IQR(data$X17),1)))
+
+# X19
+boxplot(data$X19,xlab = "bore(X19)")
+print(paste("Median of  bore:", round(median(data$X19),2) ,"IQR:",round(IQR(data$X19),2)))
+# X20
+boxplot(data$X20,xlab = "stroke(X20)")
+print(paste("Median of  stroke:", median(data$X20) ,"Measure of Variance:",round(IQR(data$X20),1)))
+# X21
+boxplot(data$X21,xlab = "compression-ratio(X21)")
+print(paste("Median of  compression-ratio:", median(data$X21) ,"Measure of Variance:",round(IQR(data$X21),1)))
+# X22
+boxplot(data$X22,xlab = "horsepower(X22)")
+print(paste("Median of  horsepower:", median(data$X22) ,"Measure of Variance:",round(IQR(data$X22),1)))
+  # X23
+boxplot(data$X23,xlab = "peak-rpm(X23)")
+print(paste("Median of  peak-rpm:", median(data$X23) ,"Measure of Variance:",round(IQR(data$X23),1)))
+# X24
+boxplot(data$X24,xlab = "city-mpg (gal)")
+print(paste("Median of  city-mpg (gal):", median(data$X24) ,"Measure of Variance:",round(IQR(data$X24),1)))
+# X25
+boxplot(data$X25,xlab = "highway-mpg (gal)")
+print(paste("Median of  highway-mpg (gal):", median(data$X25) ,"Measure of Variance:",round(IQR(data$X25),1)))
+
+# X26(price)
+boxplot(data$X26,xlab = "Price(X26)")
+print(paste("Median of  Price:", median(data$X26) ,"Measure of Variance:",round(IQR(data$X26),1)))
+# volume
+boxplot(data$volume,xlab = "Volume")
+print(paste("Median of  Volume:", median(data$volume) ,"Measure of Variance:",round(IQR(data$volume),1)))
+```
+
+
+```{r}
+#not to use exponential notation (e.g. e+10)
+
+options(scipen = 999)
+
+
+
+# What is the Distribution of price (response variable) ? 
+
+
+
+ggplot(data,aes(x=X26))+
+  geom_histogram(fill="white",col="black",aes(y=..density..)) +
+  geom_density(fill = "orange", alpha = .2)+
+  labs(x="price") + theme_classic()
+
+
+# What is the Distribution of Volume?
+
+
+ggplot(data,aes(x=volume))+
+  geom_histogram(fill="white",col="black",aes(y=..density..)) +
+  geom_density(fill = "orange", alpha = .2)+
+  labs(x="Volume") + theme_classic()
+
+# What is the Distribution of Engine Size ?
+
+
+ggplot(data,aes(x=X17))+
+  geom_histogram(fill="white",col="black",aes(y=..density..)) +
+  geom_density(fill = "orange", alpha = .2)+
+  labs(x="Engine Size") + theme_classic()
+
+# What is the Distribution of Horse Power ?
+
+
+ggplot(data,aes(x=X22))+
+  geom_histogram(fill="white",col="black",aes(y=..density..)) +
+  geom_density(fill = "orange", alpha = .2)+
+  labs(x="Horsepower") + theme_classic()
+
+
+# How does risk rating affect average prices of cars?
+data$X1 <- as.factor(data$X1)
+
+
+
+data  %>% group_by(X1) %>% summarise(mean_price = mean(X26)) %>% 
+  ggplot(aes(mean_price,fct_reorder(X1,mean_price))) +
+  geom_col(show.legend = FALSE,fill = "cadetblue4") +
+  labs(y= " Risk Rating",x= "Price") +
+  theme_classic()
+   
+
+# Which car brand is the most expensive ?
+
+
+data  %>% group_by(X3)  %>% summarise(mean_price = mean(X26))  %>% 
+  ggplot(aes(mean_price,fct_reorder(X3,mean_price),fill = X3)) + 
+  geom_col(show.legend = FALSE) + 
+  labs(y= "Brand of Cars",x= "Price",title = "Price vs Brands") +
+  theme_classic()
+
+  # What is frequency (distribution of cars ) of Fuel types 
+count(data,'X4')
+
+#  How does price change according to fuel type?
+
+ggboxplot(data, x = "X4", y = "X26", 
+          color = "X4",
+          ylab = "Price", xlab = "Fuel Type")
+
+
+# What is the frequency of number of doors?
+
+count(data,'X6')
+
+# How does price change according to number of cylender and number of doors ?
+bwplot(reorder(X16,X26) ~ (X26)|X6, data = data,
+  xlab = "Price", ylab = "Number of Cylinders",
+  main = "Price According to Number of Doors and Number of Cylinders"
+)
+ # How does price change according to number of doors and  fuel system ?
+bwplot(reorder(factor(X18),X26) ~ (X26)|(X6), data = data,
+  xlab = "Price", ylab = "Fuel System",
+  main = "Price According to Number of Doors and Fuel System"
+)
+
+ # How does fuel consumption in city  effect prices?
+ggscatter(data,x = "X26", y = "X24",
+          add ="reg.line",
+          conf.int = TRUE,
+          cor.coef = TRUE,
+          cor.method = "spearman",
+          xlab="Price",
+          ylab = "city-mpg (gal) "
+          )
+
+# How does engine size effect fuel conspumption of cars using different fuel type ?
+
+ggplot(data,aes(x=X24,X17,color = X4)) + geom_point() + 
+   geom_smooth(method ="lm") +
+  labs(x="city-mpg",y="Engine Size",color ="Fuel type") + theme_classic()
+
+# Is there a relationship between price and engine size ?
+
+
+
+ggscatter(data,x = "X17", y = "X26",
+          add ="reg.line",
+          conf.int = TRUE,
+          cor.coef = TRUE,
+          cor.method = "spearman",
+          xlab="Engine Size",
+          ylab = "Price",
+          )
+# Is there a relationship between volume and price ?
+ggscatter(data,x = "volume", y = "X26",
+          add ="reg.line",
+          conf.int = TRUE,
+          cor.coef = TRUE,
+          cor.method = "spearman",
+          ylab = "Price",
+          xlab="Volume",
+          )
+
+
+# Does the car volume and door number affect the price?
+
+ggplot(data = data,aes(y=X26,x=volume,color=X6,shape = X6)) + 
+  geom_point() +  geom_smooth(method ="lm") +
+  labs(y = "price",x = "Volume",
+    title = "Price According to Number of Doors and  Volume",
+    shape = "No of Doors",color = "No of Doors") +
+  theme_classic()
+
+
+
+
+```
+
+
+
+```{r}
+
+# 3 Inferential Analysis
+
+options(scipen = 999)
+
+# Is there a difference between gas and diesel car in terms of price ?
+
+# I.Hypothesis 
+# H0: There is no difference fuel types of car in terms of price 
+# H1: Disel cars have higher price (disel > gas)
+
+diesel = as.vector(data$X26[data$X4 == "diesel"])
+gas = as.vector(data$X26[data$X4 == "gas"])
+
+# Assumptions
+
+shapiro.test(diesel)
+shapiro.test(gas)
+
+
+# Normality was refused 
+# Non Parametric  Statistical Test
+
+# Mann-Whitney U test
+
+wilcox.test(diesel,gas,alternative = "greater")
+
+# Ho was rejected since p<0.05 so we can conclude that price of diesel car greater than gasoline(gas) car
+
+#  Is there difference between body types in terms of price ?
+
+# # II.Hypothesis 
+# HO: Body types have no impacts on price
+# H1: Body types have imapcts on price
+
+# Normality Assumption
+
+shapiro.test(data$X26[data$X7 =="hardtop"]) # normality ok
+shapiro.test(data$X26[data$X7 =="wagon"]) #  normality  was rejected
+shapiro.test(data$X26[data$X7 =="sedan"]) # normality was rejected
+shapiro.test(data$X26[data$X7 =="hatchback"]) # normality was rejected
+shapiro.test(data$X26[data$X7 =="convertible"]) # normality ok 
+
+# Totality normality was rejected
+
+# Non parametric unpaired test Kruskall - Wallis
+
+kruskal.test(X26~X7,data = data) # Ho was rejected
+
+# Acording to Kruskall test one of body types have significant differences impacts on price
+
+# Multiple Comparision Post Test  "Pairwise Wilcox Test
+
+pairwise.wilcox.test(data$X26,data$X7, p.adjust.method = "BH")
+
+#  According to pairwise comparision hardtop - convertible, hardtop,hatchback, hatch-convertible  
+# hatch- sedan and hatch- wagons are significantly different.
+
+# III.Hypothesis
+# H0: There is neaning full relationship (correlation) between volume and price
+# H1: There is a meaningfull relationship between volume and price
+
+# Normality Assumption
+
+shapiro.test(data$volume) # normality was rejected
+
+shapiro.test(data$X26) # normality was rejected
+
+# Non Parametric Test (Spearman Cor. Test)
+
+cor.test(data$volume,data$X26,method = "spearman") # rho = 0.70 (correlation coefficent)
+# we can conclute that that there is a meaningful correlation between two variables 
+#and it is post.strong correlation
+
+# IV Hypothesis
+# H0: There is no difference fuel type of car in terms of city-mpg fuel conspumtion
+# H1: There is a significant difference between two types of fuelt types in terms of fuel consumption
+
+disel_f <- as.vector(data$X24[data$X4 == "diesel"])
+gas_f <- as.vector(data$X24[data$X4 == "gas"])
+
+# Normality Assumption
+
+shapiro.test(disel_f) # normality was rejected
+shapiro.test(gas_f)
+
+#  Non Parametric Test - Mann-Whitney U test
+
+wilcox.test(disel_f,gas_f) # They are signficiantly different
+
+# Which one is greater?
+
+ggboxplot(data, x = "X4", y = "X24", 
+          color = "X4",
+          ylab = "City-mile per galoon(mpg)", xlab = "Fuel Type")
+
+# According to graph in 1985 diesel cars spend less fuel in comparision to gasoline cars
+
+# Is Number of doors important for price ?
+
+# V Hypothesis
+# H0: There is no difference between price of two doors and four doors cars
+# H1: There is a difference between price of cars according to number of doors 
+
+two  <- as.vector(data$X26[data$X6 == "two"])
+four <- as.vector(data$X26[data$X6 == "four"])
+
+
+# Normality Assumption
+
+shapiro.test(two) # normality was rejected
+shapiro.test(four) # normality was rejected
+
+
+# Non Parametric  Statistical Test
+
+# Mann-Whitney U test
+
+wilcox.test(two,four) 
+# Since p is greater than 0.05 Ho cannot rejected. There is no difference between no of doors
+
+# VI. Hypothesis
+
+
+# Normality Assumption was rejected since price is not normal
+
+
+# Non parametric unpaired test Kruskall - Wallis
+
+kruskal.test(X26~X1,data = data) 
+
+pairwise.wilcox.test(data$X26,data$X1, p.adjust.method = "BH")
+
+```
+
+
+
+
+```{r echo=FALSE}
+
+# For model we do not need make column (x3)
+options(scipen = 999)
+
+df1 <- data
+
+df1 <- dplyr::select(df1,-X3)
+
+#  Transformation of categoric variables to discrete ones
+
+must_convert<-sapply(df1,is.factor) # logical vector telling if a variable needs to be displayed as numeric
+M<-sapply(df1[,must_convert],unclass) # data.frame of all categorical variables now displayed as numeric
+
+data_model <-cbind(df1[,!must_convert],M) # complete data.frame with all variables put together
+
+
+# Convert discrete variables to factor
+
+
+data_model$X4 = as.factor(data_model$X4)
+data_model$X5 = as.factor(data_model$X5)
+data_model$X6 = as.factor(data_model$X6)
+data_model$X7 = as.factor(data_model$X7)
+data_model$X8 = as.factor(data_model$X8)
+data_model$X9 = as.factor(data_model$X9)
+data_model$X15 = as.factor(data_model$X15)
+data_model$X16 = as.factor(data_model$X16)
+data_model$X18 = as.factor(data_model$X18)
+
+str(data_model)
+
+# Splitting data as test and traing with proportion 75%
+
+
+set.seed(15)
+trainIndex <- createDataPartition(data_model$X26, p = .75, 
+                                  list = FALSE, 
+                                  times = 1)
+
+train <- data_model[ trainIndex,] # 0.75 for train
+test  <- data_model[-trainIndex,] # 0.25 for test
+
+# Creation Random forest model without tuning and cv
+
+# mtry: Number of variables randomly sampled as candidates at each split.
+# ntree: Number of trees to grow.
+
+#  For this method mtry is default (ncol(train)/3-1)
+
+set.seed(15)
+rf_model = randomForest(X26~., data = train,importance = TRUE)
+rf_model
+
+importance(rf_model)
+varImpPlot(rf_model)
+
+RFtrain_pred = predict(rf_model, newdata = train)
+
+# Train Error
+postResample(RFtrain_pred, train$X26)
+
+
+# Test error
+defaultSummary(data.frame(obs = test$X26,pred = predict(rf_model, test)))
+
+set.seed(16)
+# repeated K-FOLD cross validation
+ctrl <- trainControl(method = "repeatedcv", 
+                     number = 10,
+                     repeats  = 3,
+                     search = "grid")
+
+tune_grid <- expand.grid(mtry = c(1:22))
+
+rf_tune <- train(X26~.,
+                 data= train,
+                  method = "rf",
+                  tuneGrid = tune_grid,
+                  trControl = ctrl
+
+)
+# pamater tunning with cross-validation
+
+rf_tune
+plot(rf_tune,xlab ="mtry")
+
+rf_tune$results %>% filter(mtry ==as.numeric(rf_tune$bestTune))
+
+# test error with best parameter 
+defaultSummary(data.frame(obs = test$X26, 
+                            pred = predict(rf_tune, test)))
+
+
+
+
+# final model
+rf_final <- rf_tune$finalModel
+
+importance( rf_final)
+plot(rf_final) # best mtry effect of n_tree 
+
+# Method of Tunning for n_tree parameter but it requires lots of time
+
+model_listesi <- list()
+
+for (ntree in c(50,60,70,80,90,100)) {
+  
+  set.seed(123)
+  
+  fit <- train(X26~.,
+                  data = train,
+                  method = "rf",
+                  tuneGrid = tune_grid,
+                  trControl = ctrl, 
+                  ntree = ntree)
+
+  key <- toString(ntree)
+  model_listesi[[key]] <- fit
+  
+}
+sonuclar <- resamples(model_listesi)
+summary(sonuclar) 
+
+
+
+
+```
+
