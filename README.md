@@ -5,7 +5,7 @@
 - This project was written by R and purpose of this project was to predict price of different cars.
 # Attribute Information:     
      Attribute:                Attribute Range:
-     ------------------        -----------------------------------------------
+     
   1. symboling(risk-Rating):              -3, -2, -1, 0, 1, 2, 3.
   2. normalized-losses:        continuous from 65 to 256.
   3. make:                     alfa-romero, audi, bmw, chevrolet, dodge, honda,
